@@ -15,3 +15,12 @@ input,select{transition:border-color .15s ease,box-shadow .15s ease}input:hover,
 .stat strong{color:#163d73}.hint{line-height:1.55}.notice{border-left:4px solid #d69c2f}
 .v5-tabs{gap:8px}.v5-tabs button{border-radius:100px}.report{box-shadow:0 8px 28px #1733540c}
 @media(max-width:680px){header{padding:10px 12px}.card{border-radius:13px}.actions button{font-size:12px}.v5-tabs{overflow-x:auto;flex-wrap:nowrap;padding-bottom:5px}.v5-tabs button{white-space:nowrap}.tablewrap{margin-inline:-4px}}
+/* Bulk test series and spreadsheet UI */
+.series-studio .tablewrap{overflow-x:auto;max-width:100%;border-radius:10px}
+.series-studio table{min-width:720px}
+.series-studio th{white-space:nowrap}
+.series-studio td input:not([type=checkbox]){min-width:105px;width:100%;box-sizing:border-box}
+.series-studio td input.series-score{width:74px;min-width:74px;padding:8px}
+.series-studio .actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.series-studio .actions label{display:flex;align-items:center;gap:8px}
+@media(max-width:700px){.series-studio .formgrid{grid-template-columns:1fr}.series-studio .tablewrap{max-width:calc(100vw - 44px)}}

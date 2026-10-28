@@ -24,3 +24,34 @@ input,select{transition:border-color .15s ease,box-shadow .15s ease}input:hover,
 .series-studio .actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
 .series-studio .actions label{display:flex;align-items:center;gap:8px}
 @media(max-width:700px){.series-studio .formgrid{grid-template-columns:1fr}.series-studio .tablewrap{max-width:calc(100vw - 44px)}}
+
+/* V5.3 interface refinement: readable forms, accessible focus and mobile gradebook */
+:root{--primary:#1d4ed8;--surface:#fff;--ink:#172b4d;--subtle:#667892;--ring:#60a5fa}
+html{scroll-behavior:smooth}body{line-height:1.5}h1,h2,h3{line-height:1.22}button{min-height:38px}
+.sidebar{width:264px;gap:7px}.nav{min-height:43px;padding-inline:13px}.nav.active{background:#2b5fa0;color:#fff}
+main{padding-top:26px}.card{padding:24px}.stat{background:linear-gradient(160deg,#fff,#f8fbff)}
+.formgrid label{min-width:0}input,select{min-height:42px}input[type=checkbox]{min-height:initial;width:auto}
+.tablewrap{scrollbar-color:#9db5d7 #eef3fa;scrollbar-width:thin}.tablewrap table{font-variant-numeric:tabular-nums}
+.series-studio .tablewrap table tbody td:first-child,.series-studio .tablewrap table thead th:first-child{position:sticky;left:0;z-index:2;background:#fff;box-shadow:2px 0 5px #0f27431a}
+.series-studio .tablewrap table thead th:first-child{z-index:3;background:#eff5fc}
+.series-studio td input.series-score:focus{outline:2px solid var(--ring);background:#eff6ff}
+button:focus-visible,a:focus-visible{outline:3px solid var(--ring);outline-offset:3px}
+@media(max-width:680px){.sidebar{width:260px}.card{padding:16px}.stat{padding:15px}.series-studio .tablewrap{max-width:calc(100vw - 34px)}header{position:sticky;top:0;z-index:5;background:#ffffffee}button{min-height:42px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
+@media print{.sidebar,header,.actions,button{display:none!important}main{padding:0!important}.report{box-shadow:none!important;border:0!important;max-width:none!important}}
+/* V5.4: consistent desktop/mobile interactions and safer spreadsheet usability */
+:root{color-scheme:light}
+button,input,select,textarea{font:inherit}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #7c9cf4;outline-offset:2px}
+.series-studio .tablewrap{max-height:70vh;overflow:auto;overscroll-behavior:contain}
+.series-studio .tablewrap thead th{position:sticky;top:0;z-index:3;background:#eaf0fa}
+.series-studio .tablewrap tbody td:first-child,.series-studio .tablewrap thead th:first-child{position:sticky;left:0;z-index:2;background:#f5f8fd}
+.series-studio .tablewrap tbody td:nth-child(2),.series-studio .tablewrap thead th:nth-child(2){position:sticky;left:72px;z-index:2;background:#f5f8fd;min-width:155px}
+.series-studio .tablewrap thead th:first-child,.series-studio .tablewrap thead th:nth-child(2){z-index:4;background:#eaf0fa}
+.series-score{min-width:74px;max-width:96px;text-align:center}
+.academic-hub .tablewrap{overflow-x:auto}
+@media(max-width:680px){.series-studio .tablewrap tbody td:nth-child(2),.series-studio .tablewrap thead th:nth-child(2){left:62px;min-width:125px}.series-score{min-width:65px;width:65px}.academic-hub .formgrid{grid-template-columns:1fr}}
+@media print{aside,header,.actions,button,input,select,.notice{display:none!important}.shell{display:block!important}main{width:100%!important;padding:0!important}.card{box-shadow:none!important;break-inside:avoid}.tablewrap{overflow:visible!important}}
+
+/* V5.4 printable reports and responsive layout */
+.report-page{max-width:850px;margin:20px auto;padding:30px;background:#fff;color:#182536;border:1px solid #dbe2eb;border-radius:12px;box-shadow:0 8px 24px #10233a12}.report-head{display:flex;gap:18px;align-items:center;border-bottom:3px solid #234b82;padding-bottom:18px}.report-head img{max-width:78px;max-height:78px;object-fit:contain}.report-head h2,.report-head h3{margin:4px 0}.report-head p{margin:3px 0}.report-student{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:20px 0}.report-table{width:100%;border-collapse:collapse}.report-table th,.report-table td{padding:9px;border:1px solid #cfd8e3;text-align:left}.report-table thead,.report-table tfoot{background:#eaf0f8}.report-extras{padding:12px 0}.report-signatures{display:flex;justify-content:space-between;margin-top:65px;font-size:13px;gap:15px}.report-controls label{display:inline-flex;align-items:center;gap:8px}.report-controls .formgrid label{display:flex;flex-direction:column;align-items:stretch}.report-controls input[type=checkbox]{width:auto}@media(max-width:600px){.report-page{padding:15px}.report-student{grid-template-columns:1fr}.report-signatures{flex-direction:column}.report-page{overflow-x:auto}}@media print{body{background:white!important}.report-controls,.report-studio~*,nav,aside,button,.sidebar,.topbar{display:none!important}.report-pages{display:block}.report-page{box-shadow:none;border:0;border-radius:0;margin:0;max-width:none;page-break-after:always;break-after:page;padding:12mm}.report-page:last-child{page-break-after:auto;break-after:auto}.report-table th,.report-table td{font-size:11px}}

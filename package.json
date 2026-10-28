@@ -1,12 +1,13 @@
 {
   "name": "academy-result-manager",
-  "version": "5.2.0",
+  "version": "5.4.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0",
+    "check": "node scripts/check-project.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.0",

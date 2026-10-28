@@ -1,0 +1,67 @@
+-- Run once in a NEW Supabase project (SQL Editor). Never expose service_role keys in the frontend.
+create extension if not exists pgcrypto;
+create table public.academies(id uuid primary key default gen_random_uuid(),name text not null,phone text default '',address text default '',logo_url text default '',created_at timestamptz default now());
+create table public.profiles(id uuid primary key references auth.users(id) on delete cascade,academy_id uuid references public.academies(id),email text not null,role text not null default 'teacher' check(role in ('admin','teacher')),created_at timestamptz default now());
+create table public.invitations(id uuid primary key default gen_random_uuid(),academy_id uuid not null references public.academies(id) on delete cascade,email text not null,role text not null check(role in ('admin','teacher')),created_at timestamptz default now(),unique(academy_id,email));
+create table public.students(id uuid primary key default gen_random_uuid(),academy_id uuid not null references public.academies(id) on delete cascade,name text not null,roll_no text not null,class_name text not null,section text default '',parent_name text default '',phone text default '',created_at timestamptz default now(),unique(academy_id,class_name,roll_no),unique(id,academy_id));
+create table public.exams(id uuid primary key default gen_random_uuid(),academy_id uuid not null references public.academies(id) on delete cascade,title text not null,class_name text not null,subject text not null,max_marks numeric not null check(max_marks>0),date date not null,created_at timestamptz default now(),unique(id,academy_id));
+create table public.marks(id uuid primary key default gen_random_uuid(),academy_id uuid not null references public.academies(id) on delete cascade,student_id uuid not null,exam_id uuid not null,obtained numeric not null check(obtained>=0),created_at timestamptz default now(),unique(student_id,exam_id),foreign key(student_id,academy_id) references public.students(id,academy_id) on delete cascade,foreign key(exam_id,academy_id) references public.exams(id,academy_id) on delete cascade);
+create table public.attendance(id uuid primary key default gen_random_uuid(),academy_id uuid not null references public.academies(id) on delete cascade,student_id uuid not null,date date not null,status text not null check(status in ('Present','Absent','Late','Leave')),unique(student_id,date),foreign key(student_id,academy_id) references public.students(id,academy_id) on delete cascade);
+create table public.fees(id uuid primary key default gen_random_uuid(),academy_id uuid not null references public.academies(id) on delete cascade,student_id uuid not null,month text not null check(month ~ '^\d{4}-\d{2}$'),amount numeric not null check(amount>=0),paid numeric not null default 0 check(paid>=0 and paid<=amount),unique(student_id,month),foreign key(student_id,academy_id) references public.students(id,academy_id) on delete cascade);
+create table public.slos(id uuid primary key default gen_random_uuid(),academy_id uuid not null references public.academies(id) on delete cascade,code text not null,subject text not null,class_name text not null,chapter text default '',description text not null,unique(id,academy_id));
+create table public.slo_assessments(id uuid primary key default gen_random_uuid(),academy_id uuid not null references public.academies(id) on delete cascade,student_id uuid not null,slo_id uuid not null,mastery numeric not null check(mastery between 0 and 100),assessed_on date not null,unique(student_id,slo_id,assessed_on),foreign key(student_id,academy_id) references public.students(id,academy_id) on delete cascade,foreign key(slo_id,academy_id) references public.slos(id,academy_id) on delete cascade);
+create or replace function public.my_academy() returns uuid language sql stable security definer set search_path=public as $$select academy_id from public.profiles where id=auth.uid()$$;
+create or replace function public.is_academy_admin(a uuid) returns boolean language sql stable security definer set search_path=public as $$select exists(select 1 from public.profiles where id=auth.uid() and academy_id=a and role='admin')$$;
+-- Only authenticated user can create their initial academy; all other writes use RLS.
+create or replace function public.create_academy(academy_name text) returns uuid language plpgsql security definer set search_path=public as $$declare aid uuid; email_address text;begin if auth.uid() is null then raise exception 'Login required';end if;if length(trim(academy_name))<2 then raise exception 'Academy name too short';end if;if exists(select 1 from public.profiles where id=auth.uid() and academy_id is not null) then raise exception 'Account already belongs to an academy';end if;select email into email_address from auth.users where id=auth.uid();if exists(select 1 from public.invitations where lower(email)=lower(email_address)) then raise exception 'This email has a pending teacher invitation. Please refresh access.';end if;insert into public.academies(name) values(trim(academy_name)) returning id into aid;insert into public.profiles(id,academy_id,email,role) values(auth.uid(),aid,email_address,'admin') on conflict(id) do update set academy_id=excluded.academy_id,role='admin';return aid;end$$;
+create or replace function public.handle_new_user() returns trigger language plpgsql security definer set search_path=public as $$declare inv record;begin select * into inv from public.invitations where lower(email)=lower(new.email) order by created_at desc limit 1;insert into public.profiles(id,academy_id,email,role) values(new.id,inv.academy_id,new.email,coalesce(inv.role,'teacher')) on conflict(id) do nothing;return new;end$$;
+create trigger on_auth_user_created after insert on auth.users for each row execute function public.handle_new_user();
+-- If teacher signed up before invitation, claim it on next login using a controlled RPC.
+create or replace function public.claim_invitation() returns boolean language plpgsql security definer set search_path=public as $$declare inv record; email_address text;begin select email into email_address from auth.users where id=auth.uid();if email_address is null then return false;end if;select * into inv from public.invitations where lower(email)=lower(email_address) order by created_at desc limit 1;if not found then return false;end if;if exists(select 1 from public.profiles where id=auth.uid() and academy_id is not null) then return false;end if;update public.profiles set academy_id=inv.academy_id,role=inv.role where id=auth.uid();return true;end$$;
+create or replace function public.validate_mark() returns trigger language plpgsql set search_path=public as $$declare maximum numeric;student_class text;exam_class text;begin select max_marks,class_name into maximum,exam_class from public.exams where id=new.exam_id and academy_id=new.academy_id;select class_name into student_class from public.students where id=new.student_id and academy_id=new.academy_id;if maximum is null or student_class is distinct from exam_class or new.obtained>maximum then raise exception 'Marks must be within test maximum and student class must match';end if;return new;end$$;
+create trigger validate_mark_before_write before insert or update on public.marks for each row execute function public.validate_mark();
+create or replace function public.validate_slo() returns trigger language plpgsql set search_path=public as $$begin if (select class_name from public.students where id=new.student_id and academy_id=new.academy_id) is distinct from (select class_name from public.slos where id=new.slo_id and academy_id=new.academy_id) then raise exception 'Student and SLO classes must match';end if;return new;end$$;
+create trigger validate_slo_before_write before insert or update on public.slo_assessments for each row execute function public.validate_slo();
+-- RLS for every exposed table.
+alter table public.academies enable row level security;
+alter table public.profiles enable row level security;
+alter table public.invitations enable row level security;
+alter table public.students enable row level security;
+alter table public.exams enable row level security;
+alter table public.marks enable row level security;
+alter table public.attendance enable row level security;
+alter table public.fees enable row level security;
+alter table public.slos enable row level security;
+alter table public.slo_assessments enable row level security;
+create policy academy_read on public.academies for select to authenticated using(id=public.my_academy());
+create policy academy_edit on public.academies for update to authenticated using(public.is_academy_admin(id)) with check(public.is_academy_admin(id));
+create policy profile_read on public.profiles for select to authenticated using(academy_id=public.my_academy() or id=auth.uid());
+create policy invitation_read on public.invitations for select to authenticated using(public.is_academy_admin(academy_id));
+create policy invitation_add on public.invitations for insert to authenticated with check(public.is_academy_admin(academy_id));
+create policy invitation_delete on public.invitations for delete to authenticated using(public.is_academy_admin(academy_id));
+-- Teaching staff may enter and correct academic records. Only admins may delete students/tests or edit fees.
+create policy students_read on public.students for select to authenticated using(academy_id=public.my_academy());
+create policy students_add on public.students for insert to authenticated with check(academy_id=public.my_academy());
+create policy students_edit on public.students for update to authenticated using(academy_id=public.my_academy()) with check(academy_id=public.my_academy());
+create policy students_delete on public.students for delete to authenticated using(public.is_academy_admin(academy_id));
+create policy exams_read on public.exams for select to authenticated using(academy_id=public.my_academy());
+create policy exams_add on public.exams for insert to authenticated with check(academy_id=public.my_academy());
+create policy exams_edit on public.exams for update to authenticated using(academy_id=public.my_academy()) with check(academy_id=public.my_academy());
+create policy exams_delete on public.exams for delete to authenticated using(public.is_academy_admin(academy_id));
+create policy marks_read on public.marks for select to authenticated using(academy_id=public.my_academy());
+create policy marks_add on public.marks for insert to authenticated with check(academy_id=public.my_academy());
+create policy marks_edit on public.marks for update to authenticated using(academy_id=public.my_academy()) with check(academy_id=public.my_academy());
+create policy attendance_read on public.attendance for select to authenticated using(academy_id=public.my_academy());
+create policy attendance_add on public.attendance for insert to authenticated with check(academy_id=public.my_academy());
+create policy attendance_edit on public.attendance for update to authenticated using(academy_id=public.my_academy()) with check(academy_id=public.my_academy());
+create policy fees_read on public.fees for select to authenticated using(public.is_academy_admin(academy_id));
+create policy fees_add on public.fees for insert to authenticated with check(public.is_academy_admin(academy_id));
+create policy fees_edit on public.fees for update to authenticated using(public.is_academy_admin(academy_id)) with check(public.is_academy_admin(academy_id));
+create policy slos_read on public.slos for select to authenticated using(academy_id=public.my_academy());
+create policy slos_add on public.slos for insert to authenticated with check(academy_id=public.my_academy());
+create policy slos_edit on public.slos for update to authenticated using(academy_id=public.my_academy()) with check(academy_id=public.my_academy());
+create policy slo_assessments_read on public.slo_assessments for select to authenticated using(academy_id=public.my_academy());
+create policy slo_assessments_add on public.slo_assessments for insert to authenticated with check(academy_id=public.my_academy());
+create policy slo_assessments_edit on public.slo_assessments for update to authenticated using(academy_id=public.my_academy()) with check(academy_id=public.my_academy());
+grant execute on function public.create_academy(text) to authenticated;
+grant execute on function public.claim_invitation() to authenticated;

@@ -1,0 +1,25 @@
+name: Encrypted database backup
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * *'
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y postgresql-client
+      - name: Dump database and encrypt
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          test -n "$DATABASE_URL" && test -n "$BACKUP_PASSPHRASE"
+          pg_dump "$DATABASE_URL" --no-owner --no-acl --format=custom --file=academy.dump
+          openssl enc -aes-256-cbc -pbkdf2 -salt -in academy.dump -out academy.dump.enc -pass env:BACKUP_PASSPHRASE
+          rm -f academy.dump
+      - uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-academy-backup-${{ github.run_id }}
+          path: academy.dump.enc
+          retention-days: 7

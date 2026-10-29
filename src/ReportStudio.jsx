@@ -1,6 +1,5 @@
-import React,{useEffect,useMemo,useState} from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
-import {useEffect} from 'react';
 const safe=v=>String(v??'');
 const percent=(v,m)=>Number(m)>0?(100*Number(v||0)/Number(m)).toFixed(1)+'%':'—';
 export default function ReportStudio({db,academy,profile,students,exams,marks,attendance,fees}){

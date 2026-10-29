@@ -4,7 +4,7 @@ export const config={api:{bodyParser:false}};
 async function raw(req){const chunks=[];for await(const c of req)chunks.push(c);return Buffer.concat(chunks)}
 export default async function handler(req,res){
  if(req.method==='GET'){
-  if(req.query['hub.mode']==='subscribe'&&req.query['hub.verify_token']===process.env.WHATSAPP_VERIFY_TOKEN)return res.status(200).send(req.query['hub.challenge']);
+  if(process.env.WHATSAPP_VERIFY_TOKEN&&req.query['hub.mode']==='subscribe'&&req.query['hub.verify_token']===process.env.WHATSAPP_VERIFY_TOKEN)return res.status(200).send(req.query['hub.challenge']);
   return res.status(403).end();
  }
  if(req.method!=='POST')return res.status(405).end();
@@ -13,6 +13,7 @@ export default async function handler(req,res){
  const expected='sha256='+crypto.createHmac('sha256',appSecret).update(body).digest('hex');
  if(sig.length!==expected.length||!crypto.timingSafeEqual(Buffer.from(sig),Buffer.from(expected)))return res.status(403).end();
  let payload;try{payload=JSON.parse(body.toString())}catch{return res.status(400).end()}
+ if(!process.env.SUPABASE_URL||!process.env.SUPABASE_SERVICE_ROLE_KEY)return res.status(503).end();
  const db=createClient(process.env.SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false}});
  for(const entry of payload.entry||[])for(const change of entry.changes||[])for(const s of change.value?.statuses||[]){
   if(!['sent','delivered','read','failed'].includes(s.status))continue;
